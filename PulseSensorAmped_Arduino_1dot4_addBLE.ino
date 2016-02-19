@@ -29,10 +29,13 @@ https://github.com/WorldFamousElectronics/PulseSensor_Amped_Arduino/blob/master/
 #define BLE_RDY 8
 #define BLE_RST 5
 
+#define HEART_RATE_SERVICE_UID  "180d"
+#define HEART_RATE_CHARACTERISTIC_UID "2a37"
+
 BLEPeripheral blePeripheral = BLEPeripheral(BLE_REQ, BLE_RDY, BLE_RST);
-BLEService pulseService = BLEService("BBB0");
-BLEIntCharacteristic bpmCharacteristic = BLEIntCharacteristic("BBB1", BLERead | BLENotify | BLEBroadcast);
-BLEDescriptor bpmDescriptor = BLEDescriptor("2901", "BPM");
+BLEService pulseService = BLEService(HEART_RATE_SERVICE_UID);
+BLEIntCharacteristic bpmCharacteristic = BLEIntCharacteristic(HEART_RATE_CHARACTERISTIC_UID, BLERead | BLENotify | BLEBroadcast);
+BLEDescriptor bpmDescriptor = BLEDescriptor("2901", "Heart Rate Measurement");
 
 long previousMillis = 0;  // will store last time BPM was broadcast
 long interval = 10000;     // interval at which to broadcast BPM
@@ -55,7 +58,9 @@ volatile boolean QS = false;        // becomes true when Arduoino finds a beat.
 // Regards Serial OutPut  -- Set This Up to your needs
 static boolean serialVisual = true;   // Set to 'false' by Default.  Re-set to 'true' to see Arduino Serial Monitor ASCII Visual Pulse 
 
-
+// Flags field is lowest byte in data
+// See: https://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicViewer.aspx?u=org.bluetooth.characteristic.heart_rate_measurement.xml 
+byte flags = B00000000;
 
 void setup(){
   pinMode(blinkPin,OUTPUT);         // pin that will blink to your heartbeat!
@@ -100,7 +105,11 @@ void loop(){
         QS = false;                      // reset the Quantified Self flag for next time    
 
         if(millis() - previousMillis > interval) {
-          bpmCharacteristic.setValue(BPM);
+          // convert BPM value to unsigned int
+          unsigned int u_bpm = unsigned(BPM);
+          // and append the flags byte as LSO
+          unsigned int out_bpm = (u_bpm << 8) + flags;
+          bpmCharacteristic.setValue(out_bpm);
           previousMillis = millis();
         }
   }
